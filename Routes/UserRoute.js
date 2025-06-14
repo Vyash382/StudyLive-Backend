@@ -57,8 +57,56 @@ userRouter.post('/register',multerUpload.single('file'),async(req,res)=>{
     }
     res.status(200).json({type:true,message:"Account Created Successfully"});
 })
-userRouter.post('/getDetails',verifyJWT,(req,res)=>{
+userRouter.post('/getDetails',verifyJWT,(req,res)=>{ //My details
     res.status(200).json({type:true,user:req.user});
 })
+userRouter.post('/searchUsers', verifyJWT, async (req, res) => {
+  const { id } = req.user;
+  const { query } = req.body;
+
+  if (!query) {
+    return res.status(400).json({ type: false, message: "give the query" });
+  }
+
+  try {
+    const response = await client.query(
+      `SELECT id, name, email ,photo
+        FROM users
+        WHERE LOWER(name) LIKE '%' || LOWER($1) || '%'
+        OR email = $1;`,
+      [query]
+    );
+
+    const users = await Promise.all(
+      response.rows.map(async (user) => {
+        const status = await get_friend_status(user.id, id);
+        return {
+          ...user,
+          status
+        };
+      })
+    );
+
+    return res.status(200).json({ type: true, results: users });
+  } catch (err) {
+    console.error("Search error:", err);
+    return res.status(500).json({ type: false, message: "Server error" });
+  }
+});
+
+async function get_friend_status(id1, id2) {
+  const response = await client.query(
+    `SELECT status 
+     FROM friend_requests 
+     WHERE (sender_id = $1 AND receiver_id = $2) 
+        OR (sender_id = $2 AND receiver_id = $1)`,
+    [id1, id2]
+  );
+
+  if (response.rows.length === 0) return "Add";
+
+  if (response.rows[0].status === "accepted") return "Unfriend";
+  else return "Action Pending";
+}
 
 module.exports= {userRouter};
