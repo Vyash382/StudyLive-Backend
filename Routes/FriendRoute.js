@@ -24,5 +24,6 @@ friendRouter.post('/unfriend',verifyJWT,async(req,res)=>{
     catch(e){
         res.status(400).json({type:false,message:e});
     }
-})
+});
+
 module.exports = {friendRouter};

@@ -10,10 +10,14 @@ cloudinary.config({
 
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: {
-    folder: 'StudyLive', // optional: cloud folder name
-    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-  },
+  params: async (req, file) => ({
+    folder: 'StudyLive',
+    resource_type: 'auto', // 🔥 auto-detects image or video
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'mp4', 'mov', 'webm', 'mkv', 'avi'],
+    public_id: Date.now() + '-' + file.originalname.split('.')[0],
+  }),
 });
+
 const multerUpload = require('multer')({ storage });
+
 module.exports = { cloudinary, multerUpload };
