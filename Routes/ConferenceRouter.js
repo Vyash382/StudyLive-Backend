@@ -1,23 +1,25 @@
 const express = require('express');
 const axios = require('axios');
 const ConferenceRouter = express.Router();
-const {verifyJWT} = require('../utils/VerifyJWT.js');
-const jwt = require('jsonwebtoken')
+const { verifyJWT } = require('../utils/VerifyJWT.js');
+const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { getIO, getConnectedUsers } = require('../SocketServer.js');
 const { client } = require('../connectDB.js');
 require('dotenv').config();
+
+// Generate Management Token
 const generateManagementToken = () => {
   const payload = {
     access_key: process.env.HMS_APP_ACCESS_KEY,
     type: 'management',
     version: 2,
     iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours
-    jti: uuidv4(), // ✅ add this line
+    exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
+    jti: uuidv4(),
   };
 
-  const token = jwt.sign(payload, process.env.HMS_APP_SECRET, {
+  return jwt.sign(payload, process.env.HMS_APP_SECRET, {
     algorithm: 'HS256',
     header: {
       alg: 'HS256',
@@ -25,12 +27,37 @@ const generateManagementToken = () => {
       version: 2,
     },
   });
-
-  return token;
 };
+
+// Generate App Token
+const generateAppToken = (room_id, user_id, role) => {
+  const payload = {
+    access_key: process.env.HMS_APP_ACCESS_KEY,
+    room_id,
+    user_id:String(user_id),
+    role,
+    type: 'app',
+    version: 2,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
+    jti: uuidv4(),
+  };
+
+  return jwt.sign(payload, process.env.HMS_APP_SECRET, {
+    algorithm: 'HS256',
+    header: {
+      alg: 'HS256',
+      typ: 'JWT',
+      version: 2,
+    },
+  });
+};
+
+// Create Room
 ConferenceRouter.post('/create-room', async (req, res) => {
   const { roomName } = req.body;
   const managementToken = generateManagementToken();
+
   try {
     const response = await axios.post(
       'https://api.100ms.live/v2/rooms',
@@ -53,56 +80,37 @@ ConferenceRouter.post('/create-room', async (req, res) => {
     res.status(500).json({ error: 'Room creation failed' });
   }
 });
-ConferenceRouter.post('/get-token',verifyJWT,async (req, res) => {
-  const user_id = req.user.id; // from your JWT
+
+// Generate Token (App JWT - no 404s)
+ConferenceRouter.post('/get-token', verifyJWT, async (req, res) => {
+  const user_id = req.user.id;
   const { room_id, role } = req.body;
 
   try {
-    const response = await axios.post(
-      'https://api.100ms.live/v2/room-tokens',
-      {
-        user_id,
-        role,
-        room_id,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.HMS_APP_SECRET}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    res.status(200).json({ token: response.data.token });
-  } catch (error) {
-    console.error('Token generation error:', error.response?.data || error.message);
+    const token = generateAppToken(room_id, user_id, role);
+    res.status(200).json({ token });
+  } catch (err) {
+    console.error('Token generation error:', err.message);
     res.status(500).json({ error: 'Token generation failed' });
   }
 });
+
+// Send Invitations
 ConferenceRouter.post('/send-invitation', verifyJWT, async (req, res) => {
-  const { invitees, roomName, roomId } = req.body; // destructuring object, not array!
-  const connectedUsers = getConnectedUsers(); // e.g., { "userId1": "socketId1", ... }
+  const { invitees, roomName, roomId } = req.body;
+  const connectedUsers = getConnectedUsers(); // Map<userId, socketId>
 
   try {
     const userResult = await client.query('SELECT name FROM users WHERE id = $1', [req.user.id]);
     const inviterName = userResult.rows[0]?.name;
-
     const io = getIO();
 
-    const data = {
-      inviter: inviterName,
-      roomName,
-      roomId
-    };
-    console.log(connectedUsers);
+    const data = { inviter: inviterName, roomName, roomId };
+
     invitees.forEach((inviteeId) => {
-      console.log(typeof(inviteeId));
-      console.log(inviteeId);
       const socketId = connectedUsers.get(Number(inviteeId));
-      console.log(socketId);
       if (socketId) {
         io.to(socketId).emit('invitation', data);
-        console.log(`Sent invitation to ${inviteeId} at socket ${socketId}`);
       }
     });
 
@@ -114,4 +122,4 @@ ConferenceRouter.post('/send-invitation', verifyJWT, async (req, res) => {
   }
 });
 
-module.exports = {ConferenceRouter};
+module.exports = { ConferenceRouter };
