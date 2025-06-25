@@ -54,11 +54,12 @@ const generateAppToken = (room_id, user_id, role) => {
 };
 
 // Create Room
-ConferenceRouter.post('/create-room', async (req, res) => {
+ConferenceRouter.post('/create-room',verifyJWT,async (req, res) => {
   const { roomName } = req.body;
   const managementToken = generateManagementToken();
 
   try {
+
     const response = await axios.post(
       'https://api.100ms.live/v2/rooms',
       {
@@ -73,7 +74,10 @@ ConferenceRouter.post('/create-room', async (req, res) => {
         },
       }
     );
-
+    const response2 = await client.query('insert into groups (name,created_by) values ($1,$2) returning id',[roomName,req.user.id]);
+    const id = response2.rows[0].id;
+    const response3 = await client.query('insert into group_members (group_id,user_id) values ($1,$2)',[id,req.user.id]);
+    response.data.group_id=id;
     res.status(200).json(response.data);
   } catch (error) {
     console.error('Room creation error:', error.response?.data || error.message);
@@ -97,7 +101,7 @@ ConferenceRouter.post('/get-token', verifyJWT, async (req, res) => {
 
 // Send Invitations
 ConferenceRouter.post('/send-invitation', verifyJWT, async (req, res) => {
-  const { invitees, roomName, roomId } = req.body;
+  const { invitees, roomName, roomId,group_id } = req.body;
   const connectedUsers = getConnectedUsers(); // Map<userId, socketId>
 
   try {
@@ -105,7 +109,7 @@ ConferenceRouter.post('/send-invitation', verifyJWT, async (req, res) => {
     const inviterName = userResult.rows[0]?.name;
     const io = getIO();
 
-    const data = { inviter: inviterName, roomName, roomId };
+    const data = { inviter: inviterName, roomName, roomId,group_id };
 
     invitees.forEach((inviteeId) => {
       const socketId = connectedUsers.get(Number(inviteeId));
@@ -121,5 +125,10 @@ ConferenceRouter.post('/send-invitation', verifyJWT, async (req, res) => {
     res.status(500).json({ type: false, message: 'Failed to send invitations' });
   }
 });
+ConferenceRouter.post('/accept-invitation',verifyJWT,async (req,res)=>{
 
+  const {group_id} = req.body;
+  const response3 = await client.query('insert into group_members (group_id,user_id) values ($1,$2)',[group_id,req.user.id]);
+  res.status(200).json({type:true,message:'Successful'});
+})
 module.exports = { ConferenceRouter };

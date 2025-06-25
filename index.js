@@ -10,6 +10,7 @@ const { notificationRouter } = require('./Routes/NotificationRoute.js');
 const { chatRouter } = require('./Routes/ChatRoute.js');
 const { initializeSocket } = require('./SocketServer.js'); 
 const { ConferenceRouter } = require('./Routes/ConferenceRouter.js');
+const { GeminiRouter } = require('./Routes/GeminiRoute.js');
 
 dotenv.config();
 connect();
@@ -28,6 +29,7 @@ app.use('/api/friend', friendRouter);
 app.use('/api/notifications', notificationRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/conference',ConferenceRouter);
+app.use('/api/gemini',GeminiRouter);
 app.get('/',(req,res)=>{res.send('Hello World')});
 initializeSocket(server); 
 
