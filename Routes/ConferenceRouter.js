@@ -131,4 +131,18 @@ ConferenceRouter.post('/accept-invitation',verifyJWT,async (req,res)=>{
   const response3 = await client.query('insert into group_members (group_id,user_id) values ($1,$2)',[group_id,req.user.id]);
   res.status(200).json({type:true,message:'Successful'});
 })
+ConferenceRouter.post('/get-previous',verifyJWT,async(req,res)=>{
+    const user = req.user;
+    const response = await client.query(`SELECT 
+    g.name AS name,
+    g.summary AS summary,
+    ARRAY_AGG(u.email) AS members
+    FROM group_members gm_current
+    JOIN groups g ON gm_current.group_id = g.id
+    JOIN group_members gm_all ON g.id = gm_all.group_id
+    JOIN users u ON gm_all.user_id = u.id
+    WHERE gm_current.user_id = $1
+    GROUP BY g.id;`,[user.id]);
+    res.send(response.rows);
+})
 module.exports = { ConferenceRouter };
