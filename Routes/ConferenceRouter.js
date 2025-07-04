@@ -145,7 +145,7 @@ ConferenceRouter.post('/get-previous',verifyJWT,async(req,res)=>{
     GROUP BY g.id;`,[user.id]);
     res.send(response.rows);
 })
-app.post('/recording-webhook', express.json(), (req, res) => {
+ConferenceRouter.post('/recording-webhook', (req, res) => {
   const event = req.body;
 
   if (event.type === 'recording.success') {
