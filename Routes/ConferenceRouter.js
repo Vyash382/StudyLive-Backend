@@ -148,7 +148,8 @@ ConferenceRouter.post('/get-previous',verifyJWT,async(req,res)=>{
 ConferenceRouter.post('/recording-webhook', (req, res) => {
   const event = req.body;
 
-  if (event.type === 'recording.success') {
+  if (event.type === 'recording.success' ||
+  event.type === "beam.recording.success") {
     
     console.log("Got recording:", event.data.assets[0].url);
     
