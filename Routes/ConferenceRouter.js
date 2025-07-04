@@ -151,7 +151,7 @@ ConferenceRouter.post('/recording-webhook', (req, res) => {
   if (event.type === 'recording.success' ||
   event.type === "beam.recording.success" ) {
     
-    console.log("Got recording:", event.data.assets[0].url);
+    console.log("Got recording:", event.data);
     
   } else {
     
