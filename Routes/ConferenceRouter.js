@@ -145,4 +145,18 @@ ConferenceRouter.post('/get-previous',verifyJWT,async(req,res)=>{
     GROUP BY g.id;`,[user.id]);
     res.send(response.rows);
 })
+app.post('/recording-webhook', express.json(), (req, res) => {
+  const event = req.body;
+
+  if (event.type === 'recording.success') {
+    
+    console.log("Got recording:", event.data.assets[0].url);
+    
+  } else {
+    
+    console.log("Ignored event:", event.type);
+  }
+
+  res.sendStatus(200);
+});
 module.exports = { ConferenceRouter };
