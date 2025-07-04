@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { getIO, getConnectedUsers } = require('../SocketServer.js');
 const { client } = require('../connectDB.js');
+const { listen } = require('../OpenAi.js');
 require('dotenv').config();
 
 // Generate Management Token
@@ -74,7 +75,7 @@ ConferenceRouter.post('/create-room',verifyJWT,async (req, res) => {
         },
       }
     );
-    const response2 = await client.query('insert into groups (name,created_by) values ($1,$2) returning id',[roomName,req.user.id]);
+    const response2 = await client.query('insert into groups (name,created_by,room_id) values ($1,$2,$3) returning id',[roomName,req.user.id,response.data.id]);
     const id = response2.rows[0].id;
     const response3 = await client.query('insert into group_members (group_id,user_id) values ($1,$2)',[id,req.user.id]);
     response.data.group_id=id;
@@ -145,14 +146,16 @@ ConferenceRouter.post('/get-previous',verifyJWT,async(req,res)=>{
     GROUP BY g.id;`,[user.id]);
     res.send(response.rows);
 })
-ConferenceRouter.post('/recording-webhook', (req, res) => {
+ConferenceRouter.post('/recording-webhook', async(req, res) => {
   const event = req.body;
 
   if (event.type === 'recording.success' ||
   event.type === "beam.recording.success" ) {
     
     console.log("Got recording:", event.data);
-    
+    const data = await listen(event.data.recording_presigned_url);
+    const summary = await gemini(data);
+    await client.query('update groups set summary = $1 where room_id = $2',[summary,event.data.room_id]);
   } else {
     
     console.log("Ignored event:", event.type);
