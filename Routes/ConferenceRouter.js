@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 const { getIO, getConnectedUsers } = require('../SocketServer.js');
 const { client } = require('../connectDB.js');
 const { listen } = require('../OpenAi.js');
+const {gemini} = require('../GeminiApi.js');
 require('dotenv').config();
 
 // Generate Management Token
